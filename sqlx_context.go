@@ -25,6 +25,7 @@ func ConnectContext(ctx context.Context, driverName, dataSourceName string) (*DB
 type QueryerContext interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryxContext(ctx context.Context, query string, args ...interface{}) (*Rows, error)
+	QueryxContextNotPropagaded(ctx context.Context, query string, args ...interface{}) (*Rows, error)
 	QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row
 }
 
@@ -165,6 +166,16 @@ func (db *DB) QueryxContext(ctx context.Context, query string, args ...interface
 	return &Rows{Rows: r, unsafe: db.unsafe, Mapper: db.Mapper}, err
 }
 
+// QueryxContextNotPropagaded queries the database and returns an *sqlx.Rows, but does not propagate context.
+// Any placeholder parameters are replaced with supplied args.
+func (db *DB) QueryxContextNotPropagaded(ctx context.Context, query string, args ...interface{}) (*Rows, error) {
+	r, err := db.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return &Rows{Rows: r, unsafe: db.unsafe, Mapper: db.Mapper}, err
+}
+
 // QueryRowxContext queries the database and returns an *sqlx.Row.
 // Any placeholder parameters are replaced with supplied args.
 func (db *DB) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *Row {
@@ -264,6 +275,16 @@ func (tx *Tx) QueryxContext(ctx context.Context, query string, args ...interface
 	return &Rows{Rows: r, unsafe: tx.unsafe, Mapper: tx.Mapper}, err
 }
 
+// QueryxContextNotPropagaded within a transaction and context.
+// Any placeholder parameters are replaced with supplied args.
+func (tx *Tx) QueryxContextNotPropagaded(ctx context.Context, query string, args ...interface{}) (*Rows, error) {
+	r, err := tx.Tx.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return &Rows{Rows: r, unsafe: tx.unsafe, Mapper: tx.Mapper}, err
+}
+
 // SelectContext within a transaction and context.
 // Any placeholder parameters are replaced with supplied args.
 func (tx *Tx) SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
@@ -322,6 +343,16 @@ func (s *Stmt) QueryRowxContext(ctx context.Context, args ...interface{}) *Row {
 func (s *Stmt) QueryxContext(ctx context.Context, args ...interface{}) (*Rows, error) {
 	qs := &qStmt{s}
 	return qs.QueryxContext(ctx, "", args...)
+}
+
+// QueryxContextNotPropagaded using this statement.
+// Any placeholder parameters are replaced with supplied args.
+func (q *qStmt) QueryxContextNotPropagaded(ctx context.Context, query string, args ...interface{}) (*Rows, error) {
+	r, err := q.Stmt.Query(args...)
+	if err != nil {
+		return nil, err
+	}
+	return &Rows{Rows: r, unsafe: q.Stmt.unsafe, Mapper: q.Stmt.Mapper}, err
 }
 
 func (q *qStmt) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
